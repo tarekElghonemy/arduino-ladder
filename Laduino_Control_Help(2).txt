@@ -1,0 +1,1041 @@
+================================================================================
+  PLC ARDUINO LADDER  v4.1
+  USER HELP / INSTRUCTION MANUAL
+================================================================================
+
+  Application : Laduino Control (LADUINO)
+  Author      : Eng / Tarek Elghonemy
+  Tel         : 00201274022889
+  Mail        : tk_ad@yahoo.com
+
+================================================================================
+  TABLE OF CONTENTS
+================================================================================
+
+  1.  Overview
+  2.  Main Window Layout
+  3.  File Menu
+  4.  Tools Menu
+  5.  Toolbar - Placing Elements
+  6.  Keyboard and Mouse Shortcuts
+  7.  Element Properties Panel
+  8.  Pages and Ranges (Rungs)
+  9.  Simulation
+  10. Online (Modbus RTU)
+  10b. Modbus Map (Holding Registers)
+  11. System Markers (Special M Bits)
+  12. Instruction List (IL) - WPLSoft Style
+  13. Arduino Code Generation
+  14. HMI LCD
+  15. Arduino Pins
+  16. Basic Examples
+  17. Machine Application Examples
+  18. Recommended Workflow
+  19. Tips for Correct IL vs Drawing
+  20. About
+
+
+================================================================================
+  1. OVERVIEW
+================================================================================
+
+Laduino Control is a ladder-logic editor for Arduino-class boards
+(UNO / ATmega128 and similar).
+
+You can:
+  - Draw ladder diagrams (contacts, coils, timers, counters, data, functions)
+  - Simulate offline
+  - Connect online via Modbus RTU
+  - Generate Delta WPLSoft-style Instruction List (IL)
+  - Generate Arduino C++ code with the same logic
+
+GRID MODEL
+  - 12 sectors (columns) per rung
+  - Row 0  = Main rail
+  - Row 1+ = Parallel branches B1, B2, B3, ...
+  - Coils / timers / counters / data / PWM / PLSY / AD / DA
+    are placed in the coil column (sector 10)
+  - Contacts, compares (LD> LD< LD=) and ENC may be placed
+    in any sector
+
+
+================================================================================
+  2. MAIN WINDOW LAYOUT
+================================================================================
+
+  +------------------------------------------------------------------+
+  |  Menu:  File  |  Tools  |  Help                                  |
+  +------------------------------------------------------------------+
+  |  Toolbar: New/Del Rung | Contacts | Coils | T/C | Data | FUNC   |
+  |           Branch | Connect | Simulate                            |
+  +----------+-------------------------------+-----------------------+
+  | Pages /  |                               | Element Properties    |
+  | Ranges   |      Ladder Canvas            |                       |
+  | (tree)   |                               |                       |
+  +----------+-------------------------------+-----------------------+
+  | Status: text | Link | RTT ms | RD / WR LEDs                      |
+  +------------------------------------------------------------------+
+
+
+================================================================================
+  3. FILE MENU
+================================================================================
+
+  New
+      Create an empty project.
+
+  Open...
+      Load a saved project file.
+
+  Save / Save As...
+      Store project (ladder, pages, pins, HMI, serial settings).
+
+  Generate Arduino Code
+      Build a full .ino sketch from the current ladder / IL.
+
+  Copy Arduino Code
+      Copy the same sketch text to the clipboard only.
+
+  Generate IL Code (WPLSoft)...
+      Show Delta-style Instruction List for all ranges.
+
+  IL to Ladder...
+      Paste IL text and convert it back to ladder elements.
+
+  Exit
+      Close the application (prompts if there are unsaved changes).
+
+
+================================================================================
+  4. TOOLS MENU
+================================================================================
+
+  Online Settings...
+      COM port, baud rate (default 115200 8N1), parity, stop bits, timeout.
+
+  Force All Inputs
+      Force X/M tags ON or OFF for simulation / testing.
+
+  Data Registers / Tags...
+      View and edit D registers and tag comments.
+
+  HMI LCD...
+      Configure LCD text lines and placeholders.
+
+  Arduino Pins...
+      Map X / Y / AD / DA (PWM F0..F5) to physical pins.
+
+  Modbus Map...
+      Show holding-register map (40001...) for the online link.
+
+  Show Comments under elements
+      Toggle drawing of comments under ladder symbols.
+
+
+================================================================================
+  5. TOOLBAR - PLACING ELEMENTS
+================================================================================
+
+----------------------------------------
+5.1  Contacts
+----------------------------------------
+
+  NO    Normally Open contact
+        IL: LD / AND / OR
+
+  NC    Normally Closed contact
+        IL: LDI / ANI / ORI
+
+  P     Rising edge (positive)
+        IL: LDP / ANDP / ORP
+
+  N     Falling edge (negative)
+        IL: LDN / ANDN / ORN
+
+  Tag prefixes:
+    X = input
+    M = internal relay
+    Y = output image
+    T = timer done bit
+    C = counter done bit
+
+  Example:
+    Select cell on Main
+    -> Contacts -> NO
+    -> Type = X, No. = 0
+    -> Apply
+    Result: contact [X0]
+
+
+----------------------------------------
+5.2  Coils
+----------------------------------------
+
+  Coil (OUT Y/M)
+      Output follows rung power.
+      IL: OUT
+
+  SET (S)
+      Latch ON when rung is true.
+      IL: SET
+
+  RST (R)
+      Reset when rung is true.
+      IL: RST
+      (RST T / RST C also clears timer or counter)
+
+  Coils are placed in the right coil column (sector 10).
+
+  Example:
+    [X0] ---- (Y0)
+    IL:
+      LD     X0
+      OUT    Y0
+
+
+----------------------------------------
+5.3  Timer / Counter (T / C)
+----------------------------------------
+
+  Timer (TON)
+      On-delay timer. Preset in milliseconds.
+      IL: TMR Tn Kxxxx
+
+  Counter (CTU)
+      Count up to preset.
+      IL: CNT Cn Kx
+
+  Counter (CTD)
+      Count down from preset.
+      IL: CTD Cn Kx
+
+  Example - timer 1 second:
+    [X0] ---- [TON T0  K1000]
+    When X0 stays ON for 1000 ms, T0 done becomes true.
+    Use contact [T0] later on the ladder.
+
+  Example - counter:
+    [X0] ---- [CTU C0  K10]
+    Each rising power edge increments C0.
+    At count 10, C0 done is true.
+    RST C0 clears the count.
+
+
+----------------------------------------
+5.4  Data
+----------------------------------------
+
+  MOV     Move value              MOV S1 D
+  ADD     Add                     ADD S1 S2 D
+  SUB     Subtract                SUB S1 S2 D
+  MUL     Multiply                MUL S1 S2 D
+  DIV     Divide                  DIV S1 S2 D
+  LD >    Compare greater         LD> / AND> / OR>  S1 S2
+  LD <    Compare less            LD< / AND< / OR<  S1 S2
+  LD =    Compare equal           LD= / AND= / OR=  S1 S2
+
+  Operands:
+    K  = constant   (example: K10)
+    D  = register   (example: D0)
+
+  Example:
+    [M80] ---- [MOV K100 D0]      // D0 := 100 when RUN
+    [M80] ---- [ADD D0 K1 D0]     // D0 := D0 + 1
+    [  ] LD> D0 K50 ---- (Y1)     // if D0 > 50 then Y1
+
+
+----------------------------------------
+5.5  FUNC
+----------------------------------------
+
+  PWM
+      PWM on a Y pin.
+      IL: PWM Yn  freq  duty%
+
+  PLSY
+      Pulse train with accel / decel.
+      IL: PLSY Yn freq pulses acc_ms dec_ms
+
+  AD
+      Analog input -> D register.
+      IL: AD A0 D1
+      (raw 0..1023 scaled to engineering 0..10)
+
+  DA
+      D register -> PWM analog out.
+      IL: DA D0 F0
+      (0..10 -> 0..255 on channel F0)
+
+  ENC
+      Quadrature encoder.
+      IL: ENC Xa Xb Dn
+
+  Example AD / DA:
+    AD A0 D0                  // always sample
+    [M80] ---- [DA D0 F0]     // output while RUN
+
+  Example encoder:
+    [M80] ---- [ENC X0 X1 D10]
+
+
+----------------------------------------
+5.6  Branch
+----------------------------------------
+
+  |  Vertical
+      Start or join a parallel branch (B1, B2, ...).
+
+  -  Horizontal
+      Extend power on a branch row.
+      Shortcut: Alt+Z
+
+  Delete vertical |
+
+  How to draw parallel (OR) logic:
+
+    1. Place series contacts on Main.
+    2. Select cell under Main -> Branch -> Vertical |
+       (creates B1).
+    3. Place contact on B1.
+    4. Optional: Alt+Z to draw horizontal toward the join.
+    5. Place Vertical | at the join column (T-junction).
+    6. Continue Main contacts after the join.
+
+  Example parallel:
+
+        [X0] -- [/M1] --+-- [M10] -- (Y0)
+                        |
+                      [M0]
+
+  IL:
+    LD     X0
+    ANI    M1
+    OR     M0
+    AND    M10
+    OUT    Y0
+
+  Logic:
+    Y0 = (((X0 && !M1) || M0) && M10)
+
+
+================================================================================
+  6. KEYBOARD AND MOUSE SHORTCUTS
+================================================================================
+
+  Click cell
+      Select sector / row (green highlight).
+
+  Contacts / Coils / T/C / Data / FUNC
+      Place element in the selected cell.
+
+  Double-click cell
+      Open one-line IL editor for that cell.
+
+  Enter  or  Keypad Enter
+      Same as double-click.
+
+  Delete  or  Backspace
+      Delete element in the selected cell.
+
+  Arrow keys
+      Move selection Left / Right / Up / Down.
+
+  Keypad +  or  key =
+      Toggle selected contact type (e.g. NO <-> NC).
+
+  Alt+Z
+      Place horizontal branch at selected cell, then advance sector.
+
+  Ctrl+C / Ctrl+V
+      Copy / paste element.
+
+  Right-click
+      Context actions on the canvas.
+
+
+================================================================================
+  7. ELEMENT PROPERTIES PANEL (RIGHT SIDE)
+================================================================================
+
+  Kind
+      Element type (NO, NC, COIL, TIMER, ...).
+
+  No.
+      Numeric part of the tag (0, 1, 2, ...).
+
+  Type
+      X / M / Y / T / C / D
+      Builds full tag, example: X0, M10, Y0.
+
+  Name
+      Display name.
+
+  Value / PT
+      Timer preset (ms), counter preset, PWM frequency, etc.
+
+  Address
+      Auto Modbus address (example: 40001.0).
+
+  Arduino pin
+      Physical pin from the pin map.
+
+  S1 / S2 / D
+      Operands for data, compare, AD, DA, ENC, PLSY.
+
+  Comment
+      Free text.
+
+  Force ON / OFF
+      Override bit in simulation.
+
+  Apply
+      Write properties back to the element.
+
+  Delete Element
+      Remove the selected element.
+
+  Search Element...
+      Find an element by tag or name.
+
+
+================================================================================
+  8. PAGES AND RANGES (RUNGS)
+================================================================================
+
+  + Page / - Page
+      Add or remove a page.
+
+  New Rung / Del Rung
+      Add or remove a range (rung) on the current page.
+
+  Tree (left panel)
+      Select page or range.
+      Double-click to rename.
+
+  Each range has its own ladder, branches, and comment.
+
+
+================================================================================
+  9. SIMULATION
+================================================================================
+
+  Simulate button
+      Run offline logic scan (timers use scan time).
+
+  Force panel
+      Force X/M inputs ON or OFF.
+
+  Live display
+      Active contacts and coils highlight.
+      D / T / C values update while running.
+
+  Stop
+      Stop the simulation thread.
+
+
+================================================================================
+  10. ONLINE (MODBUS RTU)
+================================================================================
+
+  Default serial settings:
+    Baud   : 115200
+    Data   : 8
+    Parity : None
+    Stop   : 1
+    Slave  : 1
+
+  Connect
+      Opens serial without resetting the Arduino
+      (DTR/RTS held low).
+
+  Process image
+      Holding registers starting at 40001.
+      See section 10b (Modbus Map) for full layout.
+      X / Y share 40001..40004 (bits).
+      M / T / C bits from 40005.
+      D and PV_T / PV_C are full words after bit groups.
+
+  Status bar
+      Link quality, response time (ms), RD / WR LEDs.
+
+  M80
+      RUN marker (run / stop behaviour).
+
+
+================================================================================
+  10b. MODBUS MAP (HOLDING REGISTERS)
+================================================================================
+
+Open:  Tools -> Modbus Map...
+
+The map is built automatically from tags used in the ladder.
+Addresses are shown as PLC-style holding registers (40001 base).
+
+----------------------------------------
+Layout overview
+----------------------------------------
+
+  +------------------+------------------------------------------+
+  | Area             | Modbus holding registers                 |
+  +------------------+------------------------------------------+
+  | X + Y bits       | 40001.0 ... 40004.15  (regs 0..3)        |
+  |                  | Fixed 64-bit window (shared X and Y)      |
+  +------------------+------------------------------------------+
+  | M bits           | From 40005 onward (bit-packed)           |
+  | T done bits      | Next free bits after M group             |
+  | C done bits      | Next free bits after T group             |
+  +------------------+------------------------------------------+
+  | D registers      | Full 16-bit word each                    |
+  | PV_Tn            | Timer present value (word)               |
+  | PV_Cn            | Counter present value (word)             |
+  +------------------+------------------------------------------+
+
+Address form:
+  Bit  : 40001.0  = register 40001, bit 0
+         40005.3  = register 40005, bit 3
+  Word : 40012    = full 16-bit holding register
+
+----------------------------------------
+X and Y (fixed window)
+----------------------------------------
+
+  - Registers 40001 .. 40004 (internal index 0..3)
+  - 16 bits per register = 64 bit slots total
+  - X and Y share this bank
+  - Assigned in order of first appearance on the ladder
+  - Example (if ladder uses X0, Y0, X1):
+
+      X0  -> 40001.0
+      Y0  -> 40001.1
+      X1  -> 40001.2
+      ...
+
+  Maximum 64 X/Y tags in the fixed window.
+
+----------------------------------------
+M / T / C bits
+----------------------------------------
+
+  - Start at register 40005 (after the X/Y window)
+  - Packed 16 bits per register
+  - Groups finished on word boundary:
+      all used M bits, then
+      all used T done bits, then
+      all used C done bits
+
+  Example (only M0, M1, M80 used):
+
+      M0   -> 40005.0
+      M1   -> 40005.1
+      M80  -> 40005.2
+
+  System markers (when present in the map):
+
+      M80  RUN
+      M81  100 ms clock
+      M82  500 ms clock
+      M83  1 s clock
+      M84  PLSY done
+
+  Aliases accepted online:
+
+      RUN / M8000 / SM0  -> M80
+      CLK100 / SM1       -> M81
+      CLK500             -> M82
+      CLK1S              -> M83
+      PLSY_DONE          -> M84
+
+----------------------------------------
+D registers (16-bit words)
+----------------------------------------
+
+  - Each used Dn is one full holding register
+  - Placed after the M/T/C bit groups
+  - Example:
+
+      D0  -> 40010
+      D1  -> 40011
+      D2  -> 40012
+
+  32-bit ops (DMOV / DADD / DSUB / DMUL / DDIV):
+
+      Dn     = low word
+      Dn+1   = high word
+
+      Example: DMOV D0 D10 uses D0, D1, D10, D11
+      (each appears as its own word in the map)
+
+----------------------------------------
+Timer / Counter present values
+----------------------------------------
+
+  After D words:
+
+      PV_T0, PV_T1, ...   timer elapsed / PV (word)
+      PV_C0, PV_C1, ...   counter current value (word)
+
+  HMI placeholders:
+
+      {PV_T0}   {PV_C0}
+
+----------------------------------------
+How to use the Modbus Map window
+----------------------------------------
+
+  1. Draw the ladder (tags must exist in the project).
+  2. Tools -> Modbus Map...
+  3. Sort by:
+       - Modbus address  (default)
+       - Tag name
+  4. Use Reverse if needed.
+  5. Title shows how many holding registers are used:
+       "40001 ... 4000N"
+
+  Online (Connect):
+  - PC is Modbus RTU master (default 115200 8N1, slave ID 1)
+  - Arduino sketch is Modbus slave on USB and RS485
+  - Same process image for both ports
+
+  Read/Write:
+  - Bits: read-modify-write of the holding register
+  - Words (D, PV_T, PV_C): FC03 read / FC06 or FC16 write
+
+----------------------------------------
+Example map (sample project)
+----------------------------------------
+
+  Tags used: X0, X1, Y0, M0, M80, T0, C0, D0, D1
+
+  Possible assignment:
+
+    X0     40001.0     bit
+    X1     40001.1     bit
+    Y0     40001.2     bit
+    M0     40005.0     bit
+    M80    40005.1     bit
+    T0     40006.0     bit     (T group after M group ends)
+    C0     40007.0     bit     (C group after T group ends)
+    D0     40008       word
+    D1     40009       word
+    PV_T0  40010       word
+    PV_C0  40011       word
+
+  (Exact addresses depend on which tags appear in the ladder;
+   always check Tools -> Modbus Map for the live project.)
+
+----------------------------------------
+Notes
+----------------------------------------
+
+  - Map is dynamic: add/remove tags and the addresses after the
+    fixed X/Y window can shift. Re-check the map after major edits.
+  - X/Y window 40001..40004 stays fixed size (64 bits).
+  - Properties panel shows Address for the selected element
+    (example: 40001.0 for X0).
+  - Generate Arduino Code embeds the same packing for the firmware.
+
+
+================================================================================
+  11. SYSTEM MARKERS (SPECIAL M BITS)
+================================================================================
+
+  M80    RUN           PLC run image
+  M81    100 ms clock  Toggles every 100 ms
+  M82    500 ms clock  Toggles every 500 ms
+  M83    1 s clock     Toggles every 1 s
+  M84    PLSY done     Set when pulse train finishes
+                       (application / firmware dependent)
+
+
+================================================================================
+  12. INSTRUCTION LIST (IL) - WPLSOFT STYLE
+================================================================================
+
+File -> Generate IL Code produces Delta-style IL (ORB / ANB).
+
+Common operations:
+
+  LD / LDI / LDP / LDN       Load bit / inverted / rising / falling
+  AND / ANI / ANDP / ANDN    Series AND
+  OR / ORI / ORP / ORN       Parallel OR
+  ORB / ANB                  Block OR / AND (stack)
+  OUT / SET / RST            Coil / latch / reset
+  TMR / CNT / CTD            Timer / up counter / down counter
+  MOV ADD SUB MUL DIV        Data operations
+  LD> LD< LD=                Compare
+  PWM PLSY AD DA ENC         Functions
+
+Logic comment under each range uses && and || :
+
+  ; Logic: Y0 = (((X0 && !M1) || M0) && M10) || M5
+
+Enter or double-click a cell:
+  Type one IL line (example: LD X0) to place the matching element.
+
+
+================================================================================
+  13. ARDUINO CODE GENERATION
+================================================================================
+
+File -> Generate Arduino Code builds a full sketch including:
+
+  - Modbus slave on USB and RS485 (same process image)
+  - Physical X (debounce, pull-up/down), Y drive
+  - AD / DA / PWM / PLSY / ENC
+  - Timers, counters, system markers M80..M83
+  - Ladder translated from IL into C++ ACC logic
+  - Optional HMI LCD task
+
+Copy Arduino Code
+  Puts the same text on the clipboard.
+
+Flash size estimate is shown versus ATmega128 (128 KB).
+
+
+================================================================================
+  14. HMI LCD
+================================================================================
+
+Tools -> HMI LCD...
+
+Configure text lines with placeholders, for example:
+
+  {PV_T0}    Timer present value
+  {PV_C0}    Counter present value
+  D registers and fixed text
+
+Generated firmware calls hmi_setup() and hmi_task() each scan.
+
+
+================================================================================
+  15. ARDUINO PINS
+================================================================================
+
+Tools -> Arduino Pins...
+
+Map:
+
+  X0, X1, ...     Digital inputs
+  Y0, Y1, ...     Digital / PWM outputs
+  A0, ...         ADC channels for AD
+  F0 .. F5        DA PWM channels
+
+Use real hardware PWM pins for DA
+(example on ATmega128: PB5, PE3 — not non-PWM pins like PB0).
+
+
+================================================================================
+  16. BASIC EXAMPLES
+================================================================================
+
+----------------------------------------
+Example A - Start / Stop motor (seal-in)
+----------------------------------------
+
+  Ladder:
+
+    [X0] --+-- [/X1] ---- (Y0)
+           |
+         [Y0]
+
+  Meaning:
+    X0 = Start (NO)
+    X1 = Stop (use NC contact)
+    Y0 = Motor
+    Y0 holds after Start until Stop.
+
+  IL:
+    LD     X0
+    OR     Y0
+    ANI    X1
+    OUT    Y0
+
+  Logic:
+    Y0 = (X0 || Y0) && !X1
+
+
+----------------------------------------
+Example B - On-delay lamp
+----------------------------------------
+
+  Ladder:
+
+    [X0] ---- [TON T0 K2000]
+    [T0] ---- (Y0)
+
+  Meaning:
+    X0 ON for 2 seconds -> T0 done -> Y0 ON.
+
+
+----------------------------------------
+Example C - Count pieces
+----------------------------------------
+
+  Ladder:
+
+    [X0] ---- [CTU C0 K100]
+    [C0] ---- (Y1)
+    [X1] ---- [RST C0]
+
+  Meaning:
+    100 edges on X0 -> Y1 ON.
+    X1 resets the counter.
+
+
+----------------------------------------
+Example D - Parallel branches
+----------------------------------------
+
+  Ladder:
+
+    [X0] -- [/M1] --+-- [M10] --+-- [M12] -- (Y0)
+                    |           |
+                  [M0]          |
+                    |           |
+                  [M5] -- [M11]-+
+
+  IL:
+    LD     X0
+    ANI    M1
+    OR     M0
+    AND    M10
+    LD     M5
+    AND    M11
+    ORB
+    AND    M12
+    OUT    Y0
+
+  Logic:
+    Y0 = ((((X0 && !M1) || M0) && M10) || (M5 && M11)) && M12
+
+
+----------------------------------------
+Example E - Analog and PWM
+----------------------------------------
+
+  Ladder:
+
+    AD A0 D0
+    [M80] ---- [DA D0 F0]
+
+  Meaning:
+    Read A0 into D0 (0..10), output as PWM on F0 while RUN.
+
+
+================================================================================
+  17. MACHINE APPLICATION EXAMPLES
+================================================================================
+
+----------------------------------------
+MACHINE 1 - Conveyor Start / Stop / E-Stop
+----------------------------------------
+
+  I/O:
+    X0  Start pushbutton (NO)
+    X1  Stop pushbutton
+    X2  Emergency stop
+    X3  Motor overload
+    Y0  Conveyor contactor
+    Y1  Run lamp
+
+  Ladder:
+
+    [X0] --+-- [/X1] -- [/X2] -- [/X3] ---- (Y0)
+           |
+         [Y0]
+
+    [Y0] ---- (Y1)
+
+  IL:
+    LD     X0
+    OR     Y0
+    ANI    X1
+    ANI    X2
+    ANI    X3
+    OUT    Y0
+    LD     Y0
+    OUT    Y1
+
+  Behaviour:
+    Start runs the conveyor.
+    Stop, E-stop or overload drops Y0 and the lamp.
+
+
+----------------------------------------
+MACHINE 2 - Mixer: Fill / Mix / Drain
+----------------------------------------
+
+  I/O:
+    X0  Start cycle
+    X1  High level
+    X2  Low level
+    Y0  Inlet valve
+    Y1  Mixer motor
+    Y2  Drain valve
+    T0  Mix time 30 s (K30000)
+    M0  Cycle active
+
+  Sequence:
+    1) Start -> set M0, open inlet until high level
+    2) Mix for T0
+    3) Drain until low level
+    4) Reset M0 and T0
+
+  Ladder sketch:
+
+    [X0] -- [/M0] ---- (SET M0)
+
+    [M0] -- [/X1] ---- (Y0)              // fill
+
+    [M0] -- [X1] -- [/T0] ---- (Y1)      // mix motor
+    [M0] -- [X1] ---- [TON T0 K30000]
+
+    [M0] -- [T0] -- [/X2] ---- (Y2)      // drain
+
+    [M0] -- [T0] -- [X2] ---- (RST M0)
+    [M0] -- [T0] -- [X2] ---- (RST T0)
+
+  Tip:
+    Use step flags M1/M2/M3 for a clearer sequential design.
+
+
+----------------------------------------
+MACHINE 3 - Packaging: Count and Reject
+----------------------------------------
+
+  I/O:
+    X0  Product sensor
+    X1  Reset count
+    Y0  Conveyor
+    Y1  Reject pusher
+    C0  Good count (preset K50)
+    C1  Reject count
+
+  Ladder idea:
+
+    [M80] ---- (Y0)                 // conveyor while RUN
+    [X0]  ---- [CTU C0 K50]
+    [X1]  ---- [RST C0]
+    // add reject condition -> Y1 and CTU C1 as needed
+
+  HMI:
+    Show {PV_C0} and {PV_C1} on the LCD.
+
+
+----------------------------------------
+MACHINE 4 - Pump with Float Switches
+----------------------------------------
+
+  I/O:
+    X0  Low float (call for water)
+    X1  High float (stop)
+    X2  Manual stop
+    Y0  Pump
+    T0  Minimum run time 10 s (K10000)
+
+  Ladder:
+
+    [X0] --+-- [/X1] -- [/X2] ---- (Y0)
+           |
+         [Y0]
+
+    [Y0] ---- [TON T0 K10000]
+
+  Goal:
+    Start on low level, stop on high level or manual stop.
+    Use timer interlocks to reduce short-cycling.
+
+
+----------------------------------------
+MACHINE 5 - Axis Jog with PLSY
+----------------------------------------
+
+  I/O:
+    X0  Jog forward
+    X1  Forward limit
+    Y0  Step pulse output
+
+  Ladder:
+
+    [X0] -- [/X1] ---- [PLSY Y0 K1000 K5000 K200 K200]
+
+  Meaning:
+    While Jog is pressed and limit is clear, generate 5000 pulses
+    at up to 1000 Hz with 200 ms accel and decel.
+
+
+----------------------------------------
+MACHINE 6 - Temperature Band (AD + Compare)
+----------------------------------------
+
+  I/O:
+    A0  Temperature transmitter -> AD -> D0 (0..10)
+    Y0  Heater
+    Y1  Cooler / fan
+
+  Ladder:
+
+    AD A0 D0
+    [  ] LD< D0 K3 ---- (Y0)        // heat if below 3.0
+    [  ] LD> D0 K7 ---- (Y1)        // cool if above 7.0
+
+  Scale K constants to your real engineering units.
+
+
+================================================================================
+  18. RECOMMENDED WORKFLOW
+================================================================================
+
+  1. Tools -> Arduino Pins...
+     Map X / Y / A / F to hardware pins.
+
+  2. Tools -> Online Settings...
+     Set COM port and 115200 8N1.
+
+  3. Draw the ladder
+     Main contacts first, then Vertical | and B1/B2 joins.
+
+  4. Simulate
+     Use Force inputs and watch live bits.
+
+  5. File -> Generate IL Code
+     Check the "; Logic:" line.
+
+  6. File -> Generate Arduino Code
+     Save .ino and upload with Arduino IDE.
+
+  7. Connect online
+     Watch Link / RD / WR on the status bar.
+
+
+================================================================================
+  19. TIPS FOR CORRECT IL vs DRAWING
+================================================================================
+
+  - Place Vertical | at the real T-junction (join column),
+    not only at the left rail when opening a branch.
+
+  - Parallel contacts on B1/B2 are OR-ed at the join.
+
+  - Several contacts on the same branch row become a series
+    path: LD / AND ... then ORB.
+
+  - Coil column is sector 10. Keep series contacts to the left.
+
+  - After edits, generate IL and read the Logic line with && and ||.
+
+
+================================================================================
+  20. ABOUT
+================================================================================
+
+  PLC Arduino Ladder  v4.1
+
+  By Eng / Tarek Elghonemy
+  Tel  : 00201274022889
+  Mail : tk_ad@yahoo.com
+
+================================================================================
+  End of help file
+  Laduino Control v4.1
+================================================================================
